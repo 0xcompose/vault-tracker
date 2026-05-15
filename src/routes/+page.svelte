@@ -74,13 +74,6 @@
 			}),
 	)
 
-	// Same-symbol disambiguation (only relevant in current filtered set).
-	const symbolCounts = $derived(
-		filteredVaults.reduce<Record<string, number>>((acc, v) => {
-			acc[v.baseToken.symbol] = (acc[v.baseToken.symbol] ?? 0) + 1
-			return acc
-		}, {}),
-	)
 
 	onMount(() => {
 		cache = loadCache(DEPLOYER)
@@ -202,11 +195,6 @@
 		return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 	}
 
-	function vaultLabel(v: VaultMeta): string {
-		return (symbolCounts[v.baseToken.symbol] ?? 0) > 1
-			? `${v.baseToken.symbol} · ${short(v.address)}`
-			: v.baseToken.symbol
-	}
 
 	function fmtDate(unix: number): string {
 		if (!unix) return "—"
@@ -379,24 +367,24 @@
 					>
 						<div class="flex items-start justify-between gap-2">
 							<div class="min-w-0">
-								<div
-									class="truncate text-base font-semibold tracking-tight"
-								>
-									{vaultLabel(v)}
+								<div class="flex items-center gap-1.5">
+									<span
+										class="text-base font-semibold tracking-tight"
+									>
+										{v.baseToken.symbol} <span
+											class="font-mono text-sm font-normal text-zinc-500"
+											>· {short(v.address)}</span
+										>
+									</span>
+									<CopyButton
+										value={v.address}
+										title="copy vault address"
+									/>
 								</div>
 								<div
 									class="mt-0.5 truncate text-xs text-zinc-500"
 								>
 									{v.baseToken.name || "—"}
-								</div>
-								<div
-									class="mt-1 flex items-center gap-1 text-[11px] text-zinc-500"
-								>
-									<span class="font-mono">{short(v.address)}</span>
-									<CopyButton
-										value={v.address}
-										title="copy vault address"
-									/>
 								</div>
 							</div>
 							<span
