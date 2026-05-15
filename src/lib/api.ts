@@ -37,6 +37,72 @@ export async function fetchVaultBalances(
   return res.json();
 }
 
+export interface BalanceTriplet {
+  vault: string;
+  base: string;
+  quote: string;
+}
+
+export interface BalanceRow {
+  vault: string;
+  baseBalance: string;
+  quoteBalance: string;
+}
+
+export async function fetchManyVaultBalances(
+  chainId: number,
+  triplets: BalanceTriplet[],
+  signal?: AbortSignal,
+): Promise<{ balances: BalanceRow[] }> {
+  const res = await fetch(`/api/vaults/${chainId}/balances`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vaults: triplets }),
+    signal,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
+}
+
+export interface ExecutorRow {
+  address: string;
+  nativeBalance: string;
+}
+
+export async function fetchNativePrices(
+  ids: string[],
+  signal?: AbortSignal,
+): Promise<{ prices: Record<string, number> }> {
+  const url = new URL(`/api/native-prices`, window.location.origin);
+  if (ids.length) url.searchParams.set("ids", ids.join(","));
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchVaultExecutors(
+  chainId: number,
+  vault: string,
+  signal?: AbortSignal,
+): Promise<{ executors: ExecutorRow[] }> {
+  const url = new URL(
+    `/api/vault/${chainId}/${vault}/executors`,
+    window.location.origin,
+  );
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function detectVaults(
   chainId: number,
   addresses: string[],

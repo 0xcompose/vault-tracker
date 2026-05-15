@@ -4,15 +4,18 @@ export interface ChainInfo {
   shortName: string;
   explorerUrl: string;
   color: string;
+  nativeSymbol: string;
+  // CoinGecko `id` for the native asset, used by /api/v3/simple/price.
+  coingeckoId: string;
 }
 
 export const CHAINS: ChainInfo[] = [
-  { id: 1,     name: "Ethereum",  shortName: "ETH",  explorerUrl: "https://etherscan.io",     color: "#627EEA" },
-  { id: 56,    name: "BNB Chain", shortName: "BSC",  explorerUrl: "https://bscscan.com",      color: "#F0B90B" },
-  { id: 137,   name: "Polygon",   shortName: "POL",  explorerUrl: "https://polygonscan.com",  color: "#8247E5" },
-  { id: 8453,  name: "Base",      shortName: "BASE", explorerUrl: "https://basescan.org",     color: "#0052FF" },
-  { id: 42161, name: "Arbitrum",  shortName: "ARB",  explorerUrl: "https://arbiscan.io",      color: "#28A0F0" },
-  { id: 43114, name: "Avalanche", shortName: "AVAX", explorerUrl: "https://snowtrace.io",     color: "#E84142" },
+  { id: 1,     name: "Ethereum",  shortName: "ETH",  explorerUrl: "https://etherscan.io",     color: "#627EEA", nativeSymbol: "ETH",  coingeckoId: "ethereum"                 },
+  { id: 56,    name: "BNB Chain", shortName: "BSC",  explorerUrl: "https://bscscan.com",      color: "#F0B90B", nativeSymbol: "BNB",  coingeckoId: "binancecoin"              },
+  { id: 137,   name: "Polygon",   shortName: "POL",  explorerUrl: "https://polygonscan.com",  color: "#8247E5", nativeSymbol: "POL",  coingeckoId: "polygon-ecosystem-token"  },
+  { id: 8453,  name: "Base",      shortName: "BASE", explorerUrl: "https://basescan.org",     color: "#0052FF", nativeSymbol: "ETH",  coingeckoId: "ethereum"                 },
+  { id: 42161, name: "Arbitrum",  shortName: "ARB",  explorerUrl: "https://arbiscan.io",      color: "#28A0F0", nativeSymbol: "ETH",  coingeckoId: "ethereum"                 },
+  { id: 43114, name: "Avalanche", shortName: "AVAX", explorerUrl: "https://snowtrace.io",     color: "#E84142", nativeSymbol: "AVAX", coingeckoId: "avalanche-2"              },
 ];
 
 export const CHAIN_BY_ID: Record<number, ChainInfo> = Object.fromEntries(

@@ -43,6 +43,7 @@ const VAULT_ABI = parseAbi([
   "function baseToken() view returns (address)",
   "function quoteToken() view returns (address)",
   "function version() view returns (string)",
+  "function gatewayExecutors(uint256) view returns (address)",
 ]);
 
 const ERC20_ABI = parseAbi([
@@ -216,4 +217,135 @@ export async function readVaultBalances(
     baseBalance: bR?.status === "success" ? String(bR.result) : "0",
     quoteBalance: qR?.status === "success" ? String(qR.result) : "0",
   };
+}
+
+export interface VaultBalanceTriplet {
+  vault: Address;
+  base: Address;
+  quote: Address;
+}
+
+export interface VaultBalanceResult {
+  vault: string;
+  baseBalance: string;
+  quoteBalance: string;
+}
+
+/**
+ * Batched balance read for many vaults on one chain. All balanceOf calls
+ * collapse into a single multicall3 round-trip.
+ */
+export async function readManyVaultBalances(
+  chainId: number,
+  triplets: VaultBalanceTriplet[],
+): Promise<VaultBalanceResult[]> {
+  if (triplets.length === 0) return [];
+  const client = clientFor(chainId);
+
+  const calls = triplets.flatMap((t) => [
+    { address: t.base, abi: ERC20_ABI, functionName: "balanceOf", args: [t.vault] } as const,
+    { address: t.quote, abi: ERC20_ABI, functionName: "balanceOf", args: [t.vault] } as const,
+  ]);
+  const results = await client.multicall({ contracts: calls, allowFailure: true });
+
+  return triplets.map((t, i) => {
+    const bR = results[i * 2];
+    const qR = results[i * 2 + 1];
+    return {
+      vault: t.vault.toLowerCase(),
+      baseBalance: bR?.status === "success" ? String(bR.result) : "0",
+      quoteBalance: qR?.status === "success" ? String(qR.result) : "0",
+    };
+  });
+}
+
+export interface ExecutorInfo {
+  address: string;
+  nativeBalance: string;
+}
+
+// multicall3 deployed at the same address on all supported chains.
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+const MULTICALL3_ABI = parseAbi([
+  "function getEthBalance(address addr) view returns (uint256)",
+]);
+
+const EXECUTOR_BATCH_SIZE = 10;
+const EXECUTOR_MAX_INDEX = 100;
+
+/**
+ * Discover all whitelisted gateway executors by calling
+ * `gatewayExecutors(uint256)` with sequential indices until the first revert.
+ * Probes in batches of 10 (one multicall per batch); stops once a batch
+ * contains any failed call.
+ */
+export async function readGatewayExecutors(
+  chainId: number,
+  vault: Address,
+): Promise<Address[]> {
+  const client = clientFor(chainId);
+  const found: Address[] = [];
+
+  for (let start = 0; start < EXECUTOR_MAX_INDEX; start += EXECUTOR_BATCH_SIZE) {
+    const indices = Array.from({ length: EXECUTOR_BATCH_SIZE }, (_, i) => BigInt(start + i));
+    const calls = indices.map(
+      (i) =>
+        ({
+          address: vault,
+          abi: VAULT_ABI,
+          functionName: "gatewayExecutors",
+          args: [i],
+        }) as const,
+    );
+    const results = await client.multicall({ contracts: calls, allowFailure: true });
+
+    let stop = false;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i]!;
+      if (r.status !== "success") {
+        stop = true;
+        break;
+      }
+      const addr = String(r.result);
+      if (!isAddress(addr) || isZero(addr)) {
+        stop = true;
+        break;
+      }
+      found.push(getAddress(addr));
+    }
+    if (stop) break;
+  }
+
+  return found;
+}
+
+/**
+ * One multicall: read native balance for every executor address via
+ * multicall3's getEthBalance helper.
+ */
+export async function readExecutorBalances(
+  chainId: number,
+  executors: Address[],
+): Promise<ExecutorInfo[]> {
+  if (executors.length === 0) return [];
+  const client = clientFor(chainId);
+
+  const calls = executors.map(
+    (e) =>
+      ({
+        address: MULTICALL3,
+        abi: MULTICALL3_ABI,
+        functionName: "getEthBalance",
+        args: [e],
+      }) as const,
+  );
+  const results = await client.multicall({ contracts: calls, allowFailure: true });
+
+  return executors.map((e, i) => {
+    const r = results[i];
+    return {
+      address: e.toLowerCase(),
+      nativeBalance: r?.status === "success" ? String(r.result) : "0",
+    };
+  });
 }
